@@ -36,9 +36,19 @@ const Dashboard = () => {
 
 
   
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+ useEffect(() => {
+
+    const token =
+    localStorage.getItem(
+        "token"
+    );
+
+    if (token) {
+
+        fetchProfile();
+    }
+
+}, []);
 
  
   const handleLogout = () => {

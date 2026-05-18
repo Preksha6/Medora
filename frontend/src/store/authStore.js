@@ -104,7 +104,12 @@ const authStore = create((set) => ({
         "token"
     );
 
-    if (!token) return;
+    // stop request if no token
+
+    if (!token) {
+
+        return;
+    }
 
     try {
 
@@ -121,6 +126,10 @@ const authStore = create((set) => ({
         });
 
     } catch (error) {
+
+        console.log(
+            "PROFILE FETCH FAILED"
+        );
 
         localStorage.removeItem(
             "token"

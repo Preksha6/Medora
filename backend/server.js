@@ -11,7 +11,7 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-    origin: "https://medora-three.vercel.app/",
+    origin: "https://medora-three.vercel.app",
 
     credentials: true
 }));

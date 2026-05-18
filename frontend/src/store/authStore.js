@@ -98,14 +98,44 @@ const authStore = create((set) => ({
 },
 
   fetchProfile: async () => {
+
+    const token =
+    localStorage.getItem(
+        "token"
+    );
+
+    if (!token) return;
+
     try {
-      const response = await api.get('/auth/profile');
-      set({ user: response.data, isAuthenticated: true });
+
+        const response =
+        await api.get(
+            "/auth/profile"
+        );
+
+        set({
+
+            user: response.data,
+
+            isAuthenticated: true
+        });
+
     } catch (error) {
-      localStorage.removeItem('token');
-      set({ user: null, token: null, isAuthenticated: false });
+
+        localStorage.removeItem(
+            "token"
+        );
+
+        set({
+
+            user: null,
+
+            token: null,
+
+            isAuthenticated: false
+        });
     }
-  },
+},
 
   logout: () => {
     localStorage.removeItem('token');

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import API from "../services/api";
 import { 
   Stethoscope, 
@@ -8,11 +8,15 @@ import {
   ExternalLink, 
   Building2,
   Calendar,
-  RotateCcw
+  RotateCcw,
+  Navigation
 } from "lucide-react";
 
 const SymptomAnalyzer = ({ onAnalysisComplete }) => {
   const [symptoms, setSymptoms] = useState("");
+  const [manualCity, setManualCity] = useState("");
+  const [userCoords, setUserCoords] = useState(null);
+  const [geoStatus, setGeoStatus] = useState("prompt"); // 'prompt' | 'acquired' | 'denied' | 'unavailable'
   const [analysis, setAnalysis] = useState(null);
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +29,33 @@ const SymptomAnalyzer = ({ onAnalysisComplete }) => {
     "Skin irritation with itching and redness"
   ];
 
+  // Request browser geolocation (Primary Tier 1)
+  const requestLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoStatus("unavailable");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude
+        });
+        setGeoStatus("acquired");
+      },
+      (err) => {
+        console.log("Geolocation permission status:", err.message);
+        setGeoStatus("denied");
+      },
+      { timeout: 8000, enableHighAccuracy: false }
+    );
+  };
+
+  useEffect(() => {
+    requestLocation();
+  }, []);
+
   const analyzeSymptoms = async (e) => {
     if (e) e.preventDefault();
     if (!symptoms.trim()) return;
@@ -33,7 +64,17 @@ const SymptomAnalyzer = ({ onAnalysisComplete }) => {
       setLoading(true);
       setErrorMsg("");
 
-      const res = await API.post("/chat", { symptoms: symptoms.trim() });
+      // Prepare payload with 4-tier location hierarchy support:
+      // 1. Browser Geolocation (lat/lon)
+      // 2. Manual address / city entry (if provided)
+      const payload = {
+        symptoms: symptoms.trim(),
+        lat: userCoords?.lat || null,
+        lon: userCoords?.lon || null,
+        address: manualCity.trim() || null
+      };
+
+      const res = await API.post("/chat", payload);
 
       setAnalysis(res.data.aiResponse || null);
       setDoctors(res.data.recommendedDoctors || []);
@@ -85,7 +126,7 @@ const SymptomAnalyzer = ({ onAnalysisComplete }) => {
         </p>
       </div>
 
-      {/* Input Box */}
+      {/* Input Form */}
       <form onSubmit={analyzeSymptoms} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         <div>
           <label className="text-xs font-semibold text-slate-300 block mb-2">
@@ -98,6 +139,42 @@ const SymptomAnalyzer = ({ onAnalysisComplete }) => {
             placeholder="Please detail your symptoms, how long you have had them, and any related factors..."
             className="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 rounded-xl p-4 text-sm text-slate-200 placeholder-slate-500 outline-none transition"
           />
+        </div>
+
+        {/* Location Preferences */}
+        <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <Navigation className="w-3.5 h-3.5 text-sky-400" />
+              <span>Location for Doctor & Hospital Search:</span>
+            </span>
+
+            {geoStatus === "acquired" ? (
+              <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Browser GPS Detected ({userCoords.lat.toFixed(2)}, {userCoords.lon.toFixed(2)})
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={requestLocation}
+                className="text-[11px] text-sky-400 hover:text-sky-300 underline text-left"
+              >
+                Enable device GPS
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <input
+              type="text"
+              value={manualCity}
+              onChange={(e) => setManualCity(e.target.value)}
+              placeholder="Or enter city / neighborhood manually (e.g. Mumbai, Delhi, Salt Lake)..."
+              className="w-full bg-transparent text-xs text-slate-200 placeholder-slate-500 outline-none"
+            />
+          </div>
         </div>
 
         {/* Example prompts */}
@@ -125,7 +202,10 @@ const SymptomAnalyzer = ({ onAnalysisComplete }) => {
         <div className="flex items-center justify-between pt-2 border-t border-slate-800">
           <button
             type="button"
-            onClick={() => setSymptoms("")}
+            onClick={() => {
+              setSymptoms("");
+              setManualCity("");
+            }}
             className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
           >
             <RotateCcw className="w-3 h-3" /> Clear
@@ -226,7 +306,7 @@ const SymptomAnalyzer = ({ onAnalysisComplete }) => {
                   Nearby Healthcare Providers & Facilities
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Medical centers matching {analysis.specialist || "general medicine"} in your region.
+                  Medical facilities matching {analysis.specialist || "general medicine"} in your vicinity.
                 </p>
               </div>
 

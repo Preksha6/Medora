@@ -17,41 +17,34 @@ export const sendMessage = async (
 
     try {
 
-        const { symptoms } = req.body;
+        const { symptoms, lat, lon, address } = req.body;
 
         if (!symptoms) {
-
             return res.status(400).json({
-
-                message:
-                "Symptoms required"
+                message: "Symptoms required"
             });
         }
 
         // AI Analysis
+        const aiRaw = await analyzeSymptoms(symptoms);
 
-        // Parse JSON response
-
-        const aiRaw =
-        await analyzeSymptoms(symptoms);
-
-        // Strip markdown code blocks if the AI accidentally wrapped the JSON
+        // Strip markdown code blocks if the AI wrapped the JSON
         const cleanRaw = aiRaw.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const aiReply = JSON.parse(cleanRaw);
 
-        const aiReply =
-        JSON.parse(cleanRaw);
         // Extract specialist directly
+        const specialist = aiReply.specialist || "General Physician";
 
-        const specialist =
-        aiReply.specialist ||
-        "General Physician";
+        // Determine client IP address
+        const clientIp = req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "";
 
-        // Fetch real doctors
-
-        const doctors =
-        await getDoctors(
-            specialist
-        );
+        // Fetch healthcare facilities with 4-tier fallback hierarchy
+        const doctors = await getDoctors(specialist, {
+            lat,
+            lon,
+            address,
+            ip: clientIp
+        });
         console.log(aiReply);
 console.log(doctors);
         // Save chat history

@@ -35,8 +35,11 @@ export const sendMessage = async (
         const aiRaw =
         await analyzeSymptoms(symptoms);
 
+        // Strip markdown code blocks if the AI accidentally wrapped the JSON
+        const cleanRaw = aiRaw.replace(/```json/gi, "").replace(/```/g, "").trim();
+
         const aiReply =
-        JSON.parse(aiRaw);
+        JSON.parse(cleanRaw);
         // Extract specialist directly
 
         const specialist =
